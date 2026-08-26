@@ -4,7 +4,7 @@ import {
 } from 'react'
 
 const API_URL =
-  'http://localhost:5000/api/ai'
+  'https://ca-prepcore-ai.onrender.com/api/ai'
 
 function createMessage(
   role,
