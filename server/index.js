@@ -82,7 +82,38 @@ const cleanLatexFormatting = (answer) => {
     .replace(/\\(?:cdot|times)/g, "×")
     .replace(/\\div/g, "÷")
     .replace(/\\pm/g, "±")
-    .replace(/\\%/g, "%");
+    .replace(/\\%/g, "%")
+    .replace(/\\(?:leq|le)/g, "≤")
+    .replace(/\\(?:geq|ge)/g, "≥")
+    .replace(/\\neq/g, "≠")
+    .replace(/\\approx/g, "≈")
+    .replace(/\\infty/g, "∞")
+    .replace(
+      /\\sqrt\[([^\]]+)\]\{([^{}]*)\}/g,
+      "$1√($2)"
+    )
+    .replace(
+      /\\(?:alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|omega)/gi,
+      (match) => {
+        const symbols = {
+          alpha: "α",
+          beta: "β",
+          gamma: "γ",
+          delta: "δ",
+          theta: "θ",
+          lambda: "λ",
+          mu: "μ",
+          pi: "π",
+          sigma: "σ",
+          omega: "ω",
+        };
+
+        return (
+          symbols[match.slice(1).toLowerCase()] ||
+          match
+        );
+      }
+    );
 
   while (/\\frac\{[^{}]*\}\{[^{}]*\}/.test(cleaned)) {
     cleaned = cleaned.replace(
@@ -100,6 +131,7 @@ const cleanLatexFormatting = (answer) => {
 
   return cleaned
     .replace(/\$\$/g, "")
+    .replace(/\$([^$\\n]+)\$/g, "$1")
     .replace(/\\(?:\[|\]|\(|\))/g, "")
     .replace(/\\{2,}(?=\s|&|$)/g, "\n")
     .replace(/(^|\n)\s*&\s*/g, "$1    ")
@@ -252,7 +284,7 @@ mention it in "issues" and do not invent values.
         model: "gemini-3.6-flash",
         contents: verificationPrompt,
         config: {
-          maxOutputTokens: 1200,
+          maxOutputTokens: 1600,
           temperature: 0.1,
         },
       });
@@ -364,7 +396,12 @@ Final Answer
 8. For journal entries identify accounts and
    debit/credit sides where applicable.
 9. Do not add unrelated entries.
-10. Keep the answer reasonably concise.
+10. Make the corrected answer complete and sufficiently detailed.
+    Do not omit necessary steps or explanations.
+11. If the original answer was incomplete,
+    rewrite the entire answer from the beginning.
+12. End only after all parts of the question
+    have been answered.
 
 Return ONLY the corrected student-facing answer.
 `;
@@ -374,7 +411,7 @@ Return ONLY the corrected student-facing answer.
       model: "gemini-3.6-flash",
       contents: correctionPrompt,
       config: {
-        maxOutputTokens: 1800,
+        maxOutputTokens: 5000,
         temperature: 0.1,
       },
     });
@@ -426,19 +463,35 @@ IMPORTANT RULES:
 4. Never claim official verification unless it actually
    happened.
 5. Explain difficult concepts simply.
-6. Keep the answer focused and useful.
+6. Give a complete, self-contained teaching answer.
+   Do not stop after the first part of an explanation.
+7. Prefer completeness over brevity.
+   The student should not need to ask
+   "what about the remaining points?".
+8. Include all important sub-concepts that are directly
+   relevant to the student's question.
+9. Use clear headings, definitions, rules, examples,
+   exceptions, and exam-oriented points where relevant.
+10. If the student asks to explain a topic, teach the topic
+    from basics to the level needed for CA Foundation/Intermediate,
+    according to the selected subject and chapter.
+11. If the question is broad, organize the answer into
+    logical parts rather than giving only a short summary.
+12. Do not intentionally truncate a list, example,
+    derivation, or explanation just to keep the answer short.
 
 NUMERICAL / ACCOUNTING QUESTIONS:
 
-7. Recalculate every numerical result.
-8. Never invent missing values.
-9. Never use placeholders such as:
-   XXX
-   ₹XXX
-   [amount]
-   [value]
-   ...
-10. For numerical questions use:
+13. Recalculate every numerical result.
+14. Never invent missing values.
+15. Never use placeholders such as:
+    XXX
+    ₹XXX
+    [amount]
+    [value]
+    ...
+
+16. For numerical questions use:
 
 Given Information
 
@@ -452,33 +505,46 @@ Arithmetic Check
 
 Final Answer
 
-11. Keep formulas in plain readable text.
-12. For journal entries identify affected accounts
+17. Show every important calculation step.
+    Do not jump directly to the answer.
+
+18. Explain why each formula or accounting treatment
+    is being used.
+
+19. If there are multiple parts, solve every part clearly.
+
+20. Keep formulas in plain readable text.
+
+21. For journal entries identify affected accounts
     and debit/credit sides where applicable.
 
 DEPRECIATION:
 
-13. When applicable:
+22. When applicable:
 
 Annual Depreciation =
 (Cost of Asset - Residual / Scrap Value) / Useful Life
 
-14. Do not subtract residual value twice.
+23. Do not subtract residual value twice.
 
 JOURNAL ENTRIES:
 
-15. Use actual amounts.
-16. Keep debit and credit sides consistent.
-17. Do not add unrelated entries.
+24. Use actual amounts.
+25. Keep debit and credit sides consistent.
+26. Do not add unrelated entries.
 
 FORMATTING:
 
-18. Use readable Markdown.
-19. Use headings, bold text, bullets and numbered points
+27. Use readable Markdown.
+28. Use headings, bold text, bullets and numbered points
     where useful.
-20. Do not output raw LaTeX commands.
-21. Do not output LaTeX environments.
-22. Do not use unnecessary filler.
+29. Do not output raw LaTeX commands.
+30. Do not output LaTeX environments.
+31. Do not use unnecessary filler, but never remove
+    necessary educational content.
+32. Do not use phrases such as "and so on" when the
+    omitted information is important.
+33. End only after the requested explanation is complete.
 
 IMPORTANT:
 
@@ -597,8 +663,8 @@ app.post(
           config: {
             maxOutputTokens:
               isNumerical
-                ? 1800
-                : 1200,
+                ? 6000
+                : 4000,
 
             temperature: 0.1,
           },
