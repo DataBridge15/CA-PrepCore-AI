@@ -6,7 +6,7 @@ const { GoogleGenAI } = require("@google/genai");
 
 const app = express();
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
@@ -20,10 +20,7 @@ app.use(express.json());
 const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-  console.error(
-    "ERROR: GEMINI_API_KEY is missing from server/.env"
-  );
-
+  console.error("ERROR: GEMINI_API_KEY is missing from server/.env");
   process.exit(1);
 }
 
@@ -41,12 +38,139 @@ const hasUnresolvedAnswerContent = (answer) => {
   return (
     /(?:₹\s*)?XXX\b/i.test(answer) ||
     /\[(?:amount|value)\]/i.test(answer) ||
-    /\.\.\./.test(answer) ||
     /\\(?:text|mathrm|operatorname|textbf|mathbf|mathit|emph)\s*\{/i.test(
       answer
     ) ||
     /\\(?:begin|end)\s*\{/i.test(answer)
   );
+};
+
+/*
+|--------------------------------------------------------------------------
+| MARKDOWN TABLE CLEANUP
+|--------------------------------------------------------------------------
+|
+| The mobile app does not always render Markdown tables cleanly.
+| Convert tables into readable bullet-style sections.
+|
+|--------------------------------------------------------------------------
+*/
+
+const isMarkdownTableSeparator = (line) => {
+  const trimmed = line.trim();
+
+  if (!trimmed.includes("|")) {
+    return false;
+  }
+
+  const cells = trimmed
+    .split("|")
+    .map((cell) => cell.trim())
+    .filter(Boolean);
+
+  if (!cells.length) {
+    return false;
+  }
+
+  return cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+};
+
+const splitTableRow = (line) => {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+};
+
+const cleanMarkdownTables = (answer) => {
+  const lines = answer.split(/\r?\n/);
+  const output = [];
+
+  let i = 0;
+
+  while (i < lines.length) {
+    const current = lines[i];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Detect a Markdown table
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      current.includes("|") &&
+      i + 1 < lines.length &&
+      isMarkdownTableSeparator(lines[i + 1])
+    ) {
+      const headers = splitTableRow(current);
+
+      i += 2;
+
+      const rows = [];
+
+      while (
+        i < lines.length &&
+        lines[i].trim() &&
+        lines[i].includes("|")
+      ) {
+        rows.push(splitTableRow(lines[i]));
+        i++;
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | Convert table into readable format
+      |--------------------------------------------------------------------------
+      */
+
+      rows.forEach((row, rowIndex) => {
+        const meaningfulCells = row.filter(
+          (cell) => cell.trim() !== ""
+        );
+
+        if (!meaningfulCells.length) {
+          return;
+        }
+
+        if (rows.length > 1) {
+          output.push(`**${rowIndex + 1}.**`);
+
+          meaningfulCells.forEach((cell, cellIndex) => {
+            const header =
+              headers[cellIndex] ||
+              `Point ${cellIndex + 1}`;
+
+            output.push(
+              `- **${header}:** ${cell}`
+            );
+          });
+
+          output.push("");
+        } else {
+          meaningfulCells.forEach((cell, cellIndex) => {
+            const header =
+              headers[cellIndex] ||
+              `Point ${cellIndex + 1}`;
+
+            output.push(
+              `- **${header}:** ${cell}`
+            );
+          });
+
+          output.push("");
+        }
+      });
+
+      continue;
+    }
+
+    output.push(current);
+    i++;
+  }
+
+  return output.join("\n");
 };
 
 /*
@@ -57,6 +181,21 @@ const hasUnresolvedAnswerContent = (answer) => {
 
 const cleanLatexFormatting = (answer) => {
   let cleaned = answer || "";
+
+  /*
+  |--------------------------------------------------------------------------
+  | First convert Markdown tables
+  |--------------------------------------------------------------------------
+  */
+
+  cleaned = cleanMarkdownTables(cleaned);
+
+  /*
+  |--------------------------------------------------------------------------
+  | Remove common LaTeX commands
+  |--------------------------------------------------------------------------
+  */
+
   let previous;
 
   do {
@@ -68,6 +207,12 @@ const cleanLatexFormatting = (answer) => {
     );
   } while (cleaned !== previous);
 
+  /*
+  |--------------------------------------------------------------------------
+  | Remove LaTeX environments
+  |--------------------------------------------------------------------------
+  */
+
   cleaned = cleaned
     .replace(
       /\\begin\{(?:array|aligned|align\*?|tabular|matrix|pmatrix|bmatrix|cases)\}(?:\{[^{}]*\})?/gi,
@@ -77,43 +222,39 @@ const cleanLatexFormatting = (answer) => {
       /\\end\{(?:array|aligned|align\*?|tabular|matrix|pmatrix|bmatrix|cases)\}/gi,
       ""
     )
-    .replace(/\\hline/g, "")
+    .replace(/\\hline/g, "");
+
+  /*
+  |--------------------------------------------------------------------------
+  | Common mathematical symbols
+  |--------------------------------------------------------------------------
+  */
+
+  cleaned = cleaned
     .replace(/\\(?:left|right)/g, "")
-    .replace(/\\(?:cdot|times)/g, "×")
+    .replace(/\\cdot/g, "×")
+    .replace(/\\times/g, "×")
     .replace(/\\div/g, "÷")
     .replace(/\\pm/g, "±")
-    .replace(/\\%/g, "%")
-    .replace(/\\(?:leq|le)/g, "≤")
-    .replace(/\\(?:geq|ge)/g, "≥")
+    .replace(/\\leq/g, "≤")
+    .replace(/\\geq/g, "≥")
     .replace(/\\neq/g, "≠")
     .replace(/\\approx/g, "≈")
+    .replace(/\\rightarrow/g, "→")
+    .replace(/\\to/g, "→")
     .replace(/\\infty/g, "∞")
-    .replace(
-      /\\sqrt\[([^\]]+)\]\{([^{}]*)\}/g,
-      "$1√($2)"
-    )
-    .replace(
-      /\\(?:alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|omega)/gi,
-      (match) => {
-        const symbols = {
-          alpha: "α",
-          beta: "β",
-          gamma: "γ",
-          delta: "δ",
-          theta: "θ",
-          lambda: "λ",
-          mu: "μ",
-          pi: "π",
-          sigma: "σ",
-          omega: "ω",
-        };
+    .replace(/\\%/g, "%")
+    .replace(/\\,/g, " ")
+    .replace(/\\;/g, " ")
+    .replace(/\\!/g, "")
+    .replace(/\\quad/g, " ")
+    .replace(/\\qquad/g, " ");
 
-        return (
-          symbols[match.slice(1).toLowerCase()] ||
-          match
-        );
-      }
-    );
+  /*
+  |--------------------------------------------------------------------------
+  | Fractions
+  |--------------------------------------------------------------------------
+  */
 
   while (/\\frac\{[^{}]*\}\{[^{}]*\}/.test(cleaned)) {
     cleaned = cleaned.replace(
@@ -122,6 +263,12 @@ const cleanLatexFormatting = (answer) => {
     );
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Square roots
+  |--------------------------------------------------------------------------
+  */
+
   while (/\\sqrt\{[^{}]*\}/.test(cleaned)) {
     cleaned = cleaned.replace(
       /\\sqrt\{([^{}]*)\}/g,
@@ -129,18 +276,48 @@ const cleanLatexFormatting = (answer) => {
     );
   }
 
-  return cleaned
+  /*
+  |--------------------------------------------------------------------------
+  | Remove inline/display math delimiters
+  |--------------------------------------------------------------------------
+  */
+
+  cleaned = cleaned
     .replace(/\$\$/g, "")
-    .replace(/\$([^$\\n]+)\$/g, "$1")
-    .replace(/\\(?:\[|\]|\(|\))/g, "")
+    .replace(/\$/g, "")
+    .replace(/\\\[/g, "")
+    .replace(/\\\]/g, "")
+    .replace(/\\\(/g, "")
+    .replace(/\\\)/g, "");
+
+  /*
+  |--------------------------------------------------------------------------
+  | Common escaped characters
+  |--------------------------------------------------------------------------
+  */
+
+  cleaned = cleaned
+    .replace(/\\#/g, "#")
+    .replace(/\\_/g, "_")
+    .replace(/\\\*/g, "*")
+    .replace(/\\&/g, "&")
+    .replace(/\\{/g, "{")
+    .replace(/\\}/g, "}");
+
+  /*
+  |--------------------------------------------------------------------------
+  | Remaining formatting cleanup
+  |--------------------------------------------------------------------------
+  */
+
+  cleaned = cleaned
     .replace(/\\{2,}(?=\s|&|$)/g, "\n")
-    .replace(/(^|\n)\s*&\s*/g, "$1    ")
-    .replace(/\s*&\s*/g, " ")
-    .replace(/\\(?:,|;|!|quad|qquad)\s*/g, " ")
-    .replace(/\.\.\./g, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
     .trim();
+
+  return cleaned;
 };
 
 /*
@@ -231,8 +408,8 @@ You are the independent numerical verification engine for CA PrepCore.AI.
 
 Do NOT rewrite the answer.
 
-Verify whether the proposed answer is mathematically and
-accounting-wise consistent with the original question.
+Verify whether the proposed answer is mathematically and accounting-wise
+consistent with the original question.
 
 ORIGINAL QUESTION:
 ${question}
@@ -284,15 +461,14 @@ mention it in "issues" and do not invent values.
         model: "gemini-3.6-flash",
         contents: verificationPrompt,
         config: {
-          maxOutputTokens: 1600,
+          maxOutputTokens: 1200,
           temperature: 0.1,
         },
       });
 
-    const raw =
-      response.text
-        ? response.text.trim()
-        : "";
+    const raw = response.text
+      ? response.text.trim()
+      : "";
 
     if (!raw) {
       return {
@@ -303,12 +479,11 @@ mention it in "issues" and do not invent values.
       };
     }
 
-    const cleanedJson =
-      raw
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim();
+    const cleanedJson = raw
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
 
     try {
       return JSON.parse(cleanedJson);
@@ -376,32 +551,37 @@ Rules:
 1. Recalculate everything yourself.
 2. Use every relevant value from the question.
 3. Never invent missing information.
-4. Never use:
+4. Never use placeholders such as:
    XXX
    ₹XXX
    [amount]
    [value]
-   ...
-5. Do not use raw LaTeX.
-6. Use plain-text formulas.
-7. For numerical answers use:
 
-Given Information
-Required
-Formula / Method
-Working / Calculation
-Arithmetic Check
-Final Answer
+5. Do NOT use raw LaTeX.
 
-8. For journal entries identify accounts and
-   debit/credit sides where applicable.
-9. Do not add unrelated entries.
-10. Make the corrected answer complete and sufficiently detailed.
-    Do not omit necessary steps or explanations.
-11. If the original answer was incomplete,
-    rewrite the entire answer from the beginning.
-12. End only after all parts of the question
-    have been answered.
+6. Use plain readable mathematical notation.
+
+7. Do NOT use Markdown tables.
+
+8. For numerical answers use:
+
+### Given Information
+
+### Required
+
+### Formula / Method
+
+### Working / Calculation
+
+### Arithmetic Check
+
+### Final Answer
+
+9. For journal entries identify accounts and debit/credit sides.
+
+10. Do not add unrelated entries.
+
+11. Explain enough steps for a CA Foundation student to understand the solution.
 
 Return ONLY the corrected student-facing answer.
 `;
@@ -411,7 +591,7 @@ Return ONLY the corrected student-facing answer.
       model: "gemini-3.6-flash",
       contents: correctionPrompt,
       config: {
-        maxOutputTokens: 5000,
+        maxOutputTokens: 1800,
         temperature: 0.1,
       },
     });
@@ -435,7 +615,11 @@ const buildMainPrompt = ({
   chapter,
 }) => {
   return `
-You are PrepCore AI, an educational AI assistant for Chartered Accountancy students.
+You are PrepCore AI, a high-quality educational AI assistant
+for Chartered Accountancy students.
+
+Your goal is to give the student a COMPLETE, ACCURATE,
+CLEAR and WELL-STRUCTURED answer.
 
 CURRENT STUDY CONTEXT
 
@@ -452,106 +636,185 @@ ${question}
 The student selected the subject and chapter above.
 Keep the answer relevant to that context.
 
-IMPORTANT RULES:
+IMPORTANT ACCURACY RULES:
 
 1. Never intentionally provide false information.
+
 2. Never invent ICAI sections, laws, rules, amendments,
-   standards, rates, dates or examination rules.
-3. If you are uncertain about a time-sensitive factual
-   CA provision, clearly say it needs verification from
-   the latest authoritative material.
-4. Never claim official verification unless it actually
-   happened.
-5. Explain difficult concepts simply.
-6. Give a complete, self-contained teaching answer.
-   Do not stop after the first part of an explanation.
-7. Prefer completeness over brevity.
-   The student should not need to ask
-   "what about the remaining points?".
-8. Include all important sub-concepts that are directly
-   relevant to the student's question.
-9. Use clear headings, definitions, rules, examples,
-   exceptions, and exam-oriented points where relevant.
-10. If the student asks to explain a topic, teach the topic
-    from basics to the level needed for CA Foundation/Intermediate,
-    according to the selected subject and chapter.
-11. If the question is broad, organize the answer into
-    logical parts rather than giving only a short summary.
-12. Do not intentionally truncate a list, example,
-    derivation, or explanation just to keep the answer short.
+standards, rates, dates or examination rules.
+
+3. If you are uncertain about a time-sensitive CA provision,
+clearly say that it should be verified from the latest
+authoritative material.
+
+4. Never claim official verification unless it actually happened.
+
+5. Explain difficult concepts in simple student-friendly language.
+
+6. Give enough explanation to make the answer genuinely useful
+for CA Foundation preparation.
+
+7. Do not unnecessarily shorten the explanation.
+
+8. When the question asks for an explanation, cover:
+   - Definition
+   - Meaning
+   - Important concepts
+   - Rules or conditions
+   - Types/classifications where relevant
+   - Formulas where relevant
+   - Practical examples
+   - Important exam points
+   - Common mistakes where useful
+
+9. Stay relevant to the student's actual question.
+Do not add unrelated chapters or topics.
 
 NUMERICAL / ACCOUNTING QUESTIONS:
 
-13. Recalculate every numerical result.
-14. Never invent missing values.
-15. Never use placeholders such as:
+10. Recalculate every numerical result.
+
+11. Never invent missing values.
+
+12. Never use placeholders such as:
     XXX
     ₹XXX
     [amount]
     [value]
-    ...
 
-16. For numerical questions use:
+13. For numerical questions use:
 
-Given Information
+### Given Information
 
-Required
+### Required
 
-Formula / Method
+### Formula / Method
 
-Working / Calculation
+### Working / Calculation
 
-Arithmetic Check
+### Arithmetic Check
 
-Final Answer
+### Final Answer
 
-17. Show every important calculation step.
-    Do not jump directly to the answer.
+14. Keep formulas in plain readable text.
 
-18. Explain why each formula or accounting treatment
-    is being used.
-
-19. If there are multiple parts, solve every part clearly.
-
-20. Keep formulas in plain readable text.
-
-21. For journal entries identify affected accounts
-    and debit/credit sides where applicable.
+15. For journal entries identify affected accounts
+and debit/credit sides where applicable.
 
 DEPRECIATION:
 
-22. When applicable:
+16. When applicable:
 
 Annual Depreciation =
 (Cost of Asset - Residual / Scrap Value) / Useful Life
 
-23. Do not subtract residual value twice.
+17. Do not subtract residual value twice.
 
 JOURNAL ENTRIES:
 
-24. Use actual amounts.
-25. Keep debit and credit sides consistent.
-26. Do not add unrelated entries.
+18. Use actual amounts.
 
-FORMATTING:
+19. Keep debit and credit sides consistent.
 
-27. Use readable Markdown.
-28. Use headings, bold text, bullets and numbered points
-    where useful.
-29. Do not output raw LaTeX commands.
-30. Do not output LaTeX environments.
-31. Do not use unnecessary filler, but never remove
-    necessary educational content.
-32. Do not use phrases such as "and so on" when the
-    omitted information is important.
-33. End only after the requested explanation is complete.
+20. Do not add unrelated entries.
 
-IMPORTANT:
+FORMATTING RULES:
 
-If information is genuinely missing or ambiguous,
+21. Use readable Markdown.
+
+22. Use clear headings.
+
+23. Use bold text for important terms.
+
+24. Use numbered lists for steps.
+
+25. Use bullet points for lists.
+
+26. Separate major sections with headings.
+
+27. Do NOT use Markdown tables.
+
+28. Do NOT use pipe-based table formatting such as:
+
+| Term | Meaning | Example |
+
+29. Instead, write each item separately:
+
+**1. Term Name**
+
+**Meaning:** ...
+
+**Formula:** ...
+
+**Example:** ...
+
+30. Do NOT use raw LaTeX.
+
+31. Do NOT use LaTeX delimiters such as:
+$
+$$
+\\(
+\\)
+
+32. Do NOT use LaTeX environments such as:
+array
+aligned
+matrix
+cases
+tabular
+
+33. Write mathematical expressions in simple readable text.
+
+Examples:
+
+Use:
+Ratio = A : B
+
+Instead of:
+$A:B$
+
+Use:
+Profit = Selling Price - Cost Price
+
+Instead of raw LaTeX.
+
+Use:
+a × b
+
+Instead of:
+a \\times b
+
+Use:
+a / b
+
+Instead of:
+\\frac{a}{b}
+
+34. Keep headings and spacing clean for a mobile phone screen.
+
+35. Avoid huge paragraphs.
+
+36. If the answer is long, divide it into logical sections.
+
+37. Do not repeat the same explanation unnecessarily.
+
+COMPLETENESS:
+
+38. If the student asks for a concept explanation,
+give a comprehensive study-oriented explanation.
+
+39. If the student asks "explain completely",
+do not give only a short definition.
+
+40. If examples help understanding, provide examples.
+
+41. If exam-oriented points are useful, include them.
+
+42. If information is genuinely missing or ambiguous,
 clearly identify what is missing rather than guessing.
 
-Answer naturally like a high-quality CA study assistant.
+Answer naturally like a professional CA Foundation
+study assistant.
 `;
 };
 
@@ -564,8 +827,7 @@ Answer naturally like a high-quality CA study assistant.
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message:
-      "CA PrepCore.AI server is running",
+    message: "CA PrepCore.AI server is running",
   });
 });
 
@@ -592,13 +854,11 @@ app.post(
       ) {
         return res.status(400).json({
           success: false,
-          error:
-            "Please enter a question.",
+          error: "Please enter a question.",
         });
       }
 
-      const question =
-        message.trim();
+      const question = message.trim();
 
       const currentSubject =
         typeof subject === "string" &&
@@ -621,25 +881,29 @@ app.post(
       console.log(
         "----------------------------------------"
       );
-      console.log(
-        "NEW AI DOUBT"
-      );
+
+      console.log("NEW AI DOUBT");
+
       console.log(
         "Subject:",
         currentSubject
       );
+
       console.log(
         "Chapter:",
         currentChapter
       );
+
       console.log(
         "Numerical:",
         isNumerical
       );
+
       console.log(
         "Question:",
         question
       );
+
       console.log(
         "----------------------------------------"
       );
@@ -663,8 +927,8 @@ app.post(
           config: {
             maxOutputTokens:
               isNumerical
-                ? 6000
-                : 4000,
+                ? 2200
+                : 1800,
 
             temperature: 0.1,
           },
@@ -691,9 +955,7 @@ app.post(
       |--------------------------------------------------------------------------
       */
 
-      if (
-        isNumerical
-      ) {
+      if (isNumerical) {
         const verification =
           await verifyNumericalAnswer(
             question,
@@ -702,8 +964,7 @@ app.post(
 
         if (
           verification &&
-          verification.isCorrect ===
-            false
+          verification.isCorrect === false
         ) {
           console.log(
             "NUMERICAL VERIFICATION FAILED"
@@ -722,11 +983,8 @@ app.post(
               verification
             );
 
-          if (
-            correctedAnswer
-          ) {
-            answer =
-              correctedAnswer;
+          if (correctedAnswer) {
+            answer = correctedAnswer;
           }
         }
       }
@@ -800,7 +1058,6 @@ app.post(
       ) {
         return res.status(429).json({
           success: false,
-
           error:
             "CA PrepCore AI is temporarily unavailable because the Gemini API quota has been reached. Please try again after the quota resets or use a project with available API quota.",
         });
@@ -818,7 +1075,6 @@ app.post(
       ) {
         return res.status(500).json({
           success: false,
-
           error:
             "CA PrepCore AI could not authenticate with the Gemini API. Check the GEMINI_API_KEY in server/.env.",
         });
@@ -832,7 +1088,6 @@ app.post(
 
       return res.status(500).json({
         success: false,
-
         error:
           error?.message ||
           "Unable to process the question right now.",
@@ -859,7 +1114,7 @@ app.listen(
     );
 
     console.log(
-      `http://localhost:${PORT}`
+      `Port: ${PORT}`
     );
 
     console.log(
