@@ -21,7 +21,16 @@ const APP_VERSION = "2.0.0";
 const APP_VERSION_CODE = 2;
 
 const APK_DOWNLOAD_URL =
-  "https://github.com/DataBridge15/CA-PrepCore-AI/releases/latest";
+  "https://github.com/DataBridge15/CA-PrepCore-AI/releases/latest/download/app-release.apk";
+
+const APP_RELEASE_NOTES =
+  "Initial public release of CA PrepCore.AI.";
+
+/*
+|--------------------------------------------------------------------------
+| APP VERSION API
+|--------------------------------------------------------------------------
+*/
 
 app.get("/api/app-version", (req, res) => {
   res.json({
@@ -30,8 +39,7 @@ app.get("/api/app-version", (req, res) => {
     versionCode: APP_VERSION_CODE,
     downloadUrl: APK_DOWNLOAD_URL,
     forceUpdate: false,
-    releaseNotes:
-      "Initial public release of CA PrepCore AI.",
+    releaseNotes: APP_RELEASE_NOTES,
   });
 });
 
@@ -377,7 +385,7 @@ Rules:
    ...
 5. Do not use raw LaTeX.
 6. Use plain-text formulas.
-7. For numerical answers use:
+7. For numerical questions use:
 
 Given Information
 Required
@@ -445,9 +453,9 @@ IMPORTANT RULES:
 1. Never intentionally provide false information.
 2. Never invent ICAI sections, laws, rules, amendments,
    standards, rates, dates or examination rules.
-3. If you are uncertain about a time-sensitive factual
-   CA provision, clearly say it needs verification from
-   the latest authoritative material.
+3. If you are uncertain about a time-sensitive CA provision,
+   clearly say it needs verification from the latest
+   authoritative material.
 4. Never claim official verification unless it actually
    happened.
 5. Explain difficult concepts simply.
@@ -759,7 +767,6 @@ app.post(
       ) {
         return res.status(429).json({
           success: false,
-
           error:
             "CA PrepCore AI is temporarily unavailable because the Gemini API quota has been reached. Please try again after the quota resets or use a project with available API quota.",
         });
@@ -790,7 +797,6 @@ app.post(
 
       return res.status(500).json({
         success: false,
-
         error:
           error?.message ||
           "Unable to process the question right now.",
@@ -832,6 +838,11 @@ app.listen(
     console.log(
       "App version code:",
       APP_VERSION_CODE
+    );
+
+    console.log(
+      "APK download URL:",
+      APK_DOWNLOAD_URL
     );
 
     console.log(
