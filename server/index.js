@@ -17,8 +17,8 @@ app.use(express.json());
 |--------------------------------------------------------------------------
 */
 
-const APP_VERSION = "1.0.0";
-const APP_VERSION_CODE = 1;
+const APP_VERSION = "2.0.0";
+const APP_VERSION_CODE = 2;
 
 const APK_DOWNLOAD_URL =
   "https://github.com/DataBridge15/CA-PrepCore-AI/releases/latest";
