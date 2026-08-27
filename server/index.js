@@ -71,7 +71,7 @@ const ai = new GoogleGenAI({
 
 const hasUnresolvedAnswerContent = (answer) => {
   return (
-    /(?:Ã¢â€šÂ¹\s*)?XXX\b/i.test(answer) ||
+    /(?:ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹\s*)?XXX\b/i.test(answer) ||
     /\[(?:amount|value)\]/i.test(answer) ||
     /\.\.\./.test(answer) ||
     /\\(?:text|mathrm|operatorname|textbf|mathbf|mathit|emph)\s*\{/i.test(
@@ -111,9 +111,9 @@ const cleanLatexFormatting = (answer) => {
     )
     .replace(/\\hline/g, "")
     .replace(/\\(?:left|right)/g, "")
-    .replace(/\\(?:cdot|times)/g, "Ãƒâ€”")
-    .replace(/\\div/g, "ÃƒÂ·")
-    .replace(/\\pm/g, "Ã‚Â±")
+    .replace(/\\(?:cdot|times)/g, "ÃƒÆ’Ã¢â‚¬â€")
+    .replace(/\\div/g, "ÃƒÆ’Ã‚Â·")
+    .replace(/\\pm/g, "Ãƒâ€šÃ‚Â±")
     .replace(/\\%/g, "%");
 
   while (/\\frac\{[^{}]*\}\{[^{}]*\}/.test(cleaned)) {
@@ -126,7 +126,7 @@ const cleanLatexFormatting = (answer) => {
   while (/\\sqrt\{[^{}]*\}/.test(cleaned)) {
     cleaned = cleaned.replace(
       /\\sqrt\{([^{}]*)\}/g,
-      "Ã¢Ë†Å¡($1)"
+      "ÃƒÂ¢Ã‹â€ Ã…Â¡($1)"
     );
   }
 
@@ -201,7 +201,7 @@ const looksLikeNumericalQuestion = (question) => {
   const hasNumber = /\d/.test(text);
 
   const hasCurrency =
-    /Ã¢â€šÂ¹|\brs\.?\b|\binr\b|\$|Ã¢â€šÂ¬|Ã‚Â£/i.test(text);
+    /ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹|\brs\.?\b|\binr\b|\$|ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬|Ãƒâ€šÃ‚Â£/i.test(text);
 
   return (
     (hasNumber &&
@@ -379,7 +379,7 @@ Rules:
 3. Never invent missing information.
 4. Never use:
    XXX
-   Ã¢â€šÂ¹XXX
+   ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹XXX
    [amount]
    [value]
    ...
@@ -467,7 +467,7 @@ NUMERICAL / ACCOUNTING QUESTIONS:
 8. Never invent missing values.
 9. Never use placeholders such as:
    XXX
-   Ã¢â€šÂ¹XXX
+   ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹XXX
    [amount]
    [value]
    ...
@@ -613,7 +613,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | CALL 1 Ã¢â‚¬â€ MAIN ANSWER
+      | CALL 1 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â MAIN ANSWER
       |--------------------------------------------------------------------------
       */
 
@@ -654,7 +654,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | CALL 2 Ã¢â‚¬â€ ONLY FOR NUMERICAL QUESTIONS
+      | CALL 2 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ONLY FOR NUMERICAL QUESTIONS
       |--------------------------------------------------------------------------
       */
 
@@ -678,7 +678,7 @@ app.post(
 
           /*
           |--------------------------------------------------------------------------
-          | CALL 3 Ã¢â‚¬â€ CORRECTION ONLY IF NEEDED
+          | CALL 3 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â CORRECTION ONLY IF NEEDED
           |--------------------------------------------------------------------------
           */
 
