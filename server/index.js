@@ -17,8 +17,8 @@ app.use(express.json());
 |--------------------------------------------------------------------------
 */
 
-const APP_VERSION = "2.0.0";
-const APP_VERSION_CODE = 2;
+const APP_VERSION = "4.0.0";
+const APP_VERSION_CODE = 4;
 
 const APK_DOWNLOAD_URL =
   "https://github.com/DataBridge15/CA-PrepCore-AI/releases/latest/download/app-release.apk";
@@ -71,7 +71,7 @@ const ai = new GoogleGenAI({
 
 const hasUnresolvedAnswerContent = (answer) => {
   return (
-    /(?:₹\s*)?XXX\b/i.test(answer) ||
+    /(?:Ã¢â€šÂ¹\s*)?XXX\b/i.test(answer) ||
     /\[(?:amount|value)\]/i.test(answer) ||
     /\.\.\./.test(answer) ||
     /\\(?:text|mathrm|operatorname|textbf|mathbf|mathit|emph)\s*\{/i.test(
@@ -111,9 +111,9 @@ const cleanLatexFormatting = (answer) => {
     )
     .replace(/\\hline/g, "")
     .replace(/\\(?:left|right)/g, "")
-    .replace(/\\(?:cdot|times)/g, "×")
-    .replace(/\\div/g, "÷")
-    .replace(/\\pm/g, "±")
+    .replace(/\\(?:cdot|times)/g, "Ãƒâ€”")
+    .replace(/\\div/g, "ÃƒÂ·")
+    .replace(/\\pm/g, "Ã‚Â±")
     .replace(/\\%/g, "%");
 
   while (/\\frac\{[^{}]*\}\{[^{}]*\}/.test(cleaned)) {
@@ -126,7 +126,7 @@ const cleanLatexFormatting = (answer) => {
   while (/\\sqrt\{[^{}]*\}/.test(cleaned)) {
     cleaned = cleaned.replace(
       /\\sqrt\{([^{}]*)\}/g,
-      "√($1)"
+      "Ã¢Ë†Å¡($1)"
     );
   }
 
@@ -201,7 +201,7 @@ const looksLikeNumericalQuestion = (question) => {
   const hasNumber = /\d/.test(text);
 
   const hasCurrency =
-    /₹|\brs\.?\b|\binr\b|\$|€|£/i.test(text);
+    /Ã¢â€šÂ¹|\brs\.?\b|\binr\b|\$|Ã¢â€šÂ¬|Ã‚Â£/i.test(text);
 
   return (
     (hasNumber &&
@@ -379,7 +379,7 @@ Rules:
 3. Never invent missing information.
 4. Never use:
    XXX
-   ₹XXX
+   Ã¢â€šÂ¹XXX
    [amount]
    [value]
    ...
@@ -467,7 +467,7 @@ NUMERICAL / ACCOUNTING QUESTIONS:
 8. Never invent missing values.
 9. Never use placeholders such as:
    XXX
-   ₹XXX
+   Ã¢â€šÂ¹XXX
    [amount]
    [value]
    ...
@@ -613,7 +613,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | CALL 1 — MAIN ANSWER
+      | CALL 1 Ã¢â‚¬â€ MAIN ANSWER
       |--------------------------------------------------------------------------
       */
 
@@ -654,7 +654,7 @@ app.post(
 
       /*
       |--------------------------------------------------------------------------
-      | CALL 2 — ONLY FOR NUMERICAL QUESTIONS
+      | CALL 2 Ã¢â‚¬â€ ONLY FOR NUMERICAL QUESTIONS
       |--------------------------------------------------------------------------
       */
 
@@ -678,7 +678,7 @@ app.post(
 
           /*
           |--------------------------------------------------------------------------
-          | CALL 3 — CORRECTION ONLY IF NEEDED
+          | CALL 3 Ã¢â‚¬â€ CORRECTION ONLY IF NEEDED
           |--------------------------------------------------------------------------
           */
 
