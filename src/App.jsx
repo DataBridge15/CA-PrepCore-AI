@@ -2595,6 +2595,9 @@ function SubjectsPage({
         onBack={
           onBackSubjects
         }
+        onToggleComplete={
+          handleChapterToggle
+        }
       />
     )
   }
@@ -2647,6 +2650,7 @@ function ChapterSelection({
   progress,
   onChapter,
   onBack,
+  onToggleComplete,
 }) {
   const completed =
     Array.isArray(
@@ -2670,6 +2674,62 @@ function ChapterSelection({
   const isFoundationAccounting =
     normalizedId === 'foundationaccounting' ||
     normalizedName === 'accounting'
+  const getChapterCompletionState = (chapter) => {
+    const materialSubjectId =
+      subject?.id === 'foundation-law'
+        ? 'foundation-business-law'
+        : subject?.id
+
+    const material =
+      getChapterMaterial(
+        subject?.level || 'CA Intermediate',
+        materialSubjectId,
+        chapter,
+      )
+
+    const units =
+      Array.isArray(material?.units)
+        ? material.units
+        : []
+
+    if (units.length === 0) {
+      return {
+        hasUnits: false,
+        allUnitsComplete: true,
+      }
+    }
+
+    const storageKey = `prepcore-unit-progress:${subject.id}:${chapter}`
+
+    let completedUnits = []
+
+    try {
+      const saved =
+        window.localStorage.getItem(storageKey)
+
+      const parsed =
+        saved ? JSON.parse(saved) : []
+
+      completedUnits =
+        Array.isArray(parsed)
+          ? parsed
+          : []
+    } catch {
+      completedUnits = []
+    }
+
+    const allUnitsComplete =
+      units.every((unit) =>
+        completedUnits.includes(
+          unit?.id || unit?.title,
+        ),
+      )
+
+    return {
+      hasUnits: true,
+      allUnitsComplete,
+    }
+  }
 
   const modules = isFoundationAccounting
     ? [
@@ -2719,130 +2779,169 @@ function ChapterSelection({
       chapterNumber,
     ) => {
       const done =
-        completed.includes(
-          chapter,
-        )
+        completed.includes(chapter)
+
+      const chapterState =
+        getChapterCompletionState(chapter)
+
+      const canComplete =
+        !chapterState.hasUnits ||
+        chapterState.allUnitsComplete ||
+        done
+
+      const safeToggleComplete =
+        typeof onToggleComplete === 'function'
+          ? onToggleComplete
+          : () => {}
 
       return (
-        <button
-          key={
-            chapter
-          }
-          type="button"
-          onClick={() =>
-            onChapter(
-              chapter,
-            )
-          }
+        <div
+          key={chapter}
           style={{
-            width:
-              '100%',
-            display:
-              'flex',
-            alignItems:
-              'center',
-            gap:
-              '16px',
-            padding:
-              '16px 18px',
-            background:
-              '#fff',
-            border:
-              '1px solid #dce6f0',
-            borderRadius:
-              '14px',
-            textAlign:
-              'left',
-            cursor:
-              'pointer',
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            padding: '16px 18px',
+            background: '#fff',
+            border: '1px solid #dce6f0',
+            borderRadius: '14px',
+            textAlign: 'left',
           }}
         >
-          <span
-            style={{
-              width:
-                '42px',
-              height:
-                '42px',
-              borderRadius:
-                '12px',
-              display:
-                'grid',
-              placeItems:
-                'center',
-              background:
-                '#edf4fb',
-              color:
-                '#1d4f83',
-              fontWeight:
-                800,
-              flexShrink:
-                0,
-            }}
-          >
-            {String(
-              chapterNumber,
-            ).padStart(
-              2,
-              '0',
-            )}
-          </span>
-
-          <span
-            style={{
-              flex:
-                1,
-              minWidth:
-                0,
-            }}
-          >
-            <strong
-              style={{
-                display:
-                  'block',
-                color:
-                  '#09294f',
-                fontSize:
-                  '14px',
-                lineHeight:
-                  '1.35',
-              }}
-            >
-              {
-                chapter
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => onChapter(chapter)}
+            onKeyDown={(event) => {
+              if (
+                event.key === 'Enter' ||
+                event.key === ' '
+              ) {
+                event.preventDefault()
+                onChapter(chapter)
               }
-            </strong>
-
-            <small
-              style={{
-                display:
-                  'block',
-                marginTop:
-                  '4px',
-                color:
-                  '#7890aa',
-              }}
-            >
-              {done
-                ? 'Completed · Open study hub'
-                : 'Open chapter study hub'}
-            </small>
-          </span>
-
-          <span
+            }}
             style={{
-              color:
-                '#1d4f83',
-              fontSize:
-                '18px',
-              fontWeight:
-                800,
-              flexShrink:
-                0,
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              cursor: 'pointer',
             }}
           >
-            →
-          </span>
-        </button>
+            <span
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                display: 'grid',
+                placeItems: 'center',
+                background: '#edf4fb',
+                color: '#1d4f83',
+                fontWeight: 800,
+                flexShrink: 0,
+              }}
+            >
+              {String(chapterNumber).padStart(2, '0')}
+            </span>
+
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+              }}
+            >
+              <strong
+                style={{
+                  display: 'block',
+                  color: '#09294f',
+                  fontSize: '14px',
+                  lineHeight: '1.35',
+                }}
+              >
+                {chapter}
+              </strong>
+
+              <small
+                style={{
+                  display: 'block',
+                  marginTop: '4px',
+                  color: '#7890aa',
+                }}
+              >
+                {done
+                  ? 'Completed · Open study hub'
+                  : chapterState.hasUnits &&
+                    !chapterState.allUnitsComplete
+                    ? 'Complete all units first'
+                    : 'Open chapter study hub'}
+              </small>
+            </span>
+
+            <span
+              style={{
+                color: '#1d4f83',
+                fontSize: '18px',
+                fontWeight: 800,
+                flexShrink: 0,
+              }}
+            >
+              {'\u2192'}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            disabled={!canComplete}
+            onClick={(event) => {
+              event.stopPropagation()
+
+              if (!canComplete) {
+                return
+              }
+
+              safeToggleComplete(
+                subject.id,
+                chapter,
+              )
+            }}
+            style={{
+              flexShrink: 0,
+              padding: '8px 10px',
+              borderRadius: '9px',
+              border: done
+                ? '1px solid #b8dbc9'
+                : canComplete
+                  ? '1px solid #dce6f0'
+                  : '1px solid #e5e9ee',
+              background: done
+                ? '#eef9f2'
+                : canComplete
+                  ? '#f7fbff'
+                  : '#f3f5f7',
+              color: done
+                ? '#26734d'
+                : canComplete
+                  ? '#1d4f83'
+                  : '#9aa8b5',
+              fontSize: '9px',
+              fontWeight: 800,
+              cursor: canComplete
+                ? 'pointer'
+                : 'not-allowed',
+              whiteSpace: 'nowrap',
+              opacity: canComplete ? 1 : 0.75,
+            }}
+          >
+            {done
+              ? '✓ Completed'
+              : canComplete
+                ? '✓ Mark Complete'
+                : '🔒 Complete Units First'}
+          </button>
+        </div>
       )
     }
 
@@ -3086,27 +3185,157 @@ function ChapterStudyHub({
     : []
 
   const isComplete = completed.includes(chapter)
+
   const [selectedUnit, setSelectedUnit] = useState(null)
-  const safeToggleComplete = typeof onToggleComplete === 'function' ? onToggleComplete : () => {}
+
+  const safeToggleComplete =
+    typeof onToggleComplete === 'function'
+      ? onToggleComplete
+      : () => {}
+
+  const unitStorageKey =
+    `prepcore-unit-progress:${subject.id}:${chapter}`
+
+  const [completedUnits, setCompletedUnits] =
+    useState(() => {
+      try {
+        const saved =
+          window.localStorage.getItem(
+            unitStorageKey,
+          )
+
+        if (!saved) return []
+
+        const parsed =
+          JSON.parse(saved)
+
+        return Array.isArray(parsed)
+          ? parsed
+          : []
+      } catch {
+        return []
+      }
+    })
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        unitStorageKey,
+        JSON.stringify(completedUnits),
+      )
+    } catch {
+      // Local storage may be unavailable.
+    }
+  }, [
+    unitStorageKey,
+    completedUnits,
+  ])
+
+  const isUnitComplete = (unit) =>
+    completedUnits.includes(
+      unit?.id || unit?.title,
+    )
+
+  const toggleUnitComplete = (unit) => {
+    const unitKey =
+      unit?.id || unit?.title
+
+    if (!unitKey) return
+
+    setCompletedUnits((previous) =>
+      previous.includes(unitKey)
+        ? previous.filter(
+            (item) => item !== unitKey,
+          )
+        : [
+            ...previous,
+            unitKey,
+          ],
+    )
+  }
+
+  const chapterCompletionButton = (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation()
+        safeToggleComplete(
+          subject.id,
+          chapter,
+        )
+      }}
+      style={{
+        flexShrink: 0,
+        padding: '8px 10px',
+        borderRadius: '9px',
+        border: isComplete
+          ? '1px solid #b8dbc9'
+          : '1px solid #dce6f0',
+        background: isComplete
+          ? '#eef9f2'
+          : '#f7fbff',
+        color: isComplete
+          ? '#26734d'
+          : '#1d4f83',
+        fontSize: '9px',
+        fontWeight: 800,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {isComplete
+        ? '\u2713 Completed'
+        : '\u2713 Mark Complete'}
+    </button>
+  )
 
   if (!material) {
     return (
       <div className="page">
         <div className="page-intro">
           <div>
-            <p className="eyebrow">CHAPTER STUDY HUB</p>
-            <h2>{chapter}</h2>
+            <p className="eyebrow">
+              CHAPTER STUDY HUB
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <h2 style={{ margin: 0 }}>
+                {chapter}
+              </h2>
+
+              {chapterCompletionButton}
+            </div>
+
             <p>{subject.name}</p>
           </div>
-          <button className="filter-button" onClick={onBack}>
-            ← Back to Chapters
+
+          <button
+            className="filter-button"
+            onClick={onBack}
+          >
+            {'\u2190 Back to Chapters'}
           </button>
         </div>
+
         <div className="information-card">
           <div className="info-icon">!</div>
+
           <div>
-            <h3>Study material not linked</h3>
-            <p>Material could not be resolved for this chapter.</p>
+            <h3>
+              Study material not linked
+            </h3>
+
+            <p>
+              Material could not be resolved
+              for this chapter.
+            </p>
           </div>
         </div>
       </div>
@@ -3115,35 +3344,103 @@ function ChapterStudyHub({
 
   const units = Array.isArray(material.units)
     ? material.units.map((item) =>
-        material.id === 'chapter-5' || chapter === 'Assets Based Accounting Standards'
+        material.id === 'chapter-5' ||
+        chapter === 'Assets Based Accounting Standards'
           ? withChapter5PdfPath(item)
           : item,
       )
     : []
+
   const hasUnits = units.length > 0
 
   if (hasUnits && selectedUnit) {
-    const isEnabledUnit = Boolean(selectedUnit?.pdfPath)
+    const isEnabledUnit =
+      Boolean(selectedUnit?.pdfPath)
+
+    const selectedUnitComplete =
+      isUnitComplete(selectedUnit)
 
     if (!isEnabledUnit) {
       return (
         <div className="page">
           <div className="page-intro">
             <div>
-              <p className="eyebrow">CHAPTER 4 · UNIT</p>
-              <h2>{selectedUnit.title}</h2>
+              <p className="eyebrow">
+                CHAPTER 4 · UNIT
+              </p>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <h2 style={{ margin: 0 }}>
+                  {selectedUnit.title}
+                </h2>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleUnitComplete(
+                      selectedUnit,
+                    )
+                  }
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: '9px',
+                    border:
+                      selectedUnitComplete
+                        ? '1px solid #b8dbc9'
+                        : '1px solid #dce6f0',
+                    background:
+                      selectedUnitComplete
+                        ? '#eef9f2'
+                        : '#f7fbff',
+                    color:
+                      selectedUnitComplete
+                        ? '#26734d'
+                        : '#1d4f83',
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {selectedUnitComplete
+                    ? '\u2713 Completed'
+                    : '\u2713 Mark Complete'}
+                </button>
+              </div>
+
               <p>{chapter}</p>
             </div>
-            <button className="filter-button" onClick={() => setSelectedUnit(null)}>
-              ← Back to Units
+
+            <button
+              className="filter-button"
+              onClick={() =>
+                setSelectedUnit(null)
+              }
+            >
+              {'\u2190 Back to Units'}
             </button>
           </div>
 
           <div className="information-card">
-            <div className="info-icon">▣</div>
+            <div className="info-icon">
+              !
+            </div>
+
             <div>
-              <h3>PDF will be added next</h3>
-              <p>This unit is kept in the chapter structure. We are connecting units one by one.</p>
+              <h3>
+                PDF will be added next
+              </h3>
+
+              <p>
+                This unit is kept in the
+                chapter structure.
+              </p>
             </div>
           </div>
         </div>
@@ -3163,12 +3460,77 @@ function ChapterStudyHub({
           }}
         >
           <div>
-            <p className="eyebrow">ICAI STUDY MATERIAL</p>
-            <h2 style={{ margin: '6px 0 4px' }}>{selectedUnit.title}</h2>
-            <p style={{ margin: 0, color: '#7188a0', fontSize: '11px' }}>{chapter} · {currentLevel}</p>
+            <p className="eyebrow">
+              ICAI STUDY MATERIAL
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <h2
+                style={{
+                  margin: '6px 0 4px',
+                }}
+              >
+                {selectedUnit.title}
+              </h2>
+
+              <button
+                type="button"
+                onClick={() =>
+                  toggleUnitComplete(
+                    selectedUnit,
+                  )
+                }
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '9px',
+                  border:
+                    selectedUnitComplete
+                      ? '1px solid #b8dbc9'
+                      : '1px solid #dce6f0',
+                  background:
+                    selectedUnitComplete
+                      ? '#eef9f2'
+                      : '#f7fbff',
+                  color:
+                    selectedUnitComplete
+                      ? '#26734d'
+                      : '#1d4f83',
+                  fontSize: '9px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                {selectedUnitComplete
+                  ? '\u2713 Completed'
+                  : '\u2713 Mark Complete'}
+              </button>
+            </div>
+
+            <p
+              style={{
+                margin: 0,
+                color: '#7188a0',
+                fontSize: '11px',
+              }}
+            >
+              {chapter} {'\u00B7'} {currentLevel}
+            </p>
           </div>
-          <button className="filter-button" onClick={() => setSelectedUnit(null)}>
-            ← Back to Units
+
+          <button
+            className="filter-button"
+            onClick={() =>
+              setSelectedUnit(null)
+            }
+          >
+            {'\u2190 Back to Units'}
           </button>
         </div>
 
@@ -3193,70 +3555,179 @@ function ChapterStudyHub({
             marginBottom: '20px',
           }}
         >
-          <div>
-            <p className="eyebrow">CHAPTER 4</p>
-            <h2>{material.title || chapter}</h2>
-            <p style={{ color: '#7188a0', marginBottom: 0 }}>{units.length} units</p>
+          <div style={{ minWidth: 0 }}>
+            <p className="eyebrow">
+              CHAPTER 4
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <h2 style={{ margin: 0 }}>
+                {material.title || chapter}
+              </h2>
+
+              {chapterCompletionButton}
+            </div>
+
+            <p
+              style={{
+                color: '#7188a0',
+                marginBottom: 0,
+              }}
+            >
+              {units.length} units
+            </p>
           </div>
-          <button className="filter-button" onClick={onBack}>
-            ← Back to Chapters
+
+          <button
+            className="filter-button"
+            onClick={onBack}
+          >
+            {'\u2190 Back to Chapters'}
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {units.map((item, index) => (
-            <button
-              key={item.id || index}
-              type="button"
-              onClick={() => setSelectedUnit(item)}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                padding: '15px 17px',
-                background: '#fff',
-                border: '1px solid #dce6f0',
-                borderRadius: '14px',
-                textAlign: 'left',
-                cursor: 'pointer',
-              }}
-            >
-              <span
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+          }}
+        >
+          {units.map((item, index) => {
+            const done =
+              isUnitComplete(item)
+
+            return (
+              <div
+                key={item.id || index}
                 style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '11px',
-                  display: 'grid',
-                  placeItems: 'center',
-                  background: '#edf4fb',
-                  color: '#1d4f83',
-                  fontWeight: 800,
-                  flexShrink: 0,
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '15px 17px',
+                  background: '#fff',
+                  border:
+                    '1px solid #dce6f0',
+                  borderRadius: '14px',
                 }}
               >
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <span style={{ flex: 1 }}>
-                <strong style={{ display: 'block', color: '#173d60', fontSize: '12px' }}>
-                  {item.title}
-                </strong>
-                <small style={{ display: 'block', marginTop: '4px', color: '#7b91a5', fontSize: '9px' }}>
-                  {item.pdfPath ? 'Open PDF' : 'PDF will be added next'}
-                </small>
-              </span>
-              <span style={{ color: '#1d4f83', fontSize: '18px', fontWeight: 800 }}>→</span>
-            </button>
-          ))}
-        </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedUnit(item)
+                  }
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    padding: 0,
+                    border: 0,
+                    background: 'transparent',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '11px',
+                      display: 'grid',
+                      placeItems: 'center',
+                      background: '#edf4fb',
+                      color: '#1d4f83',
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {String(index + 1)
+                      .padStart(2, '0')}
+                  </span>
 
-        <StudyHubCard
-          title={isComplete ? 'Chapter Completed' : 'Finish This Chapter'}
-          description={isComplete ? 'Your chapter progress is already saved.' : 'Mark the chapter complete after finishing the study material.'}
-          actionLabel={isComplete ? 'Mark Incomplete' : 'Mark Chapter Complete'}
-          onAction={() => safeToggleComplete(subject.id, chapter)}
-          completed={isComplete}
-        />
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                    }}
+                  >
+                    <strong
+                      style={{
+                        display: 'block',
+                        color: '#173d60',
+                        fontSize: '12px',
+                      }}
+                    >
+                      {item.title}
+                    </strong>
+
+                    <small
+                      style={{
+                        display: 'block',
+                        marginTop: '4px',
+                        color: '#7b91a5',
+                        fontSize: '9px',
+                      }}
+                    >
+                      {item.pdfPath
+                        ? 'Open PDF'
+                        : 'PDF will be added next'}
+                    </small>
+                  </span>
+
+                  <span
+                    style={{
+                      color: '#1d4f83',
+                      fontSize: '18px',
+                      fontWeight: 800,
+                    }}
+                  >
+                    {'\u2192'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    toggleUnitComplete(item)
+                  }}
+                  style={{
+                    flexShrink: 0,
+                    padding: '8px 10px',
+                    borderRadius: '9px',
+                    border: done
+                      ? '1px solid #b8dbc9'
+                      : '1px solid #dce6f0',
+                    background: done
+                      ? '#eef9f2'
+                      : '#f7fbff',
+                    color: done
+                      ? '#26734d'
+                      : '#1d4f83',
+                    fontSize: '9px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {done
+                    ? '\u2713 Completed'
+                    : '\u2713 Mark Complete'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
@@ -3275,21 +3746,51 @@ function ChapterStudyHub({
           }}
         >
           <div>
-            <p className="eyebrow">ICAI STUDY MATERIAL</p>
-            <h2 style={{ margin: '6px 0 4px' }}>{material.title || chapter}</h2>
-            <p style={{ margin: 0, color: '#7188a0', fontSize: '11px' }}>{subject.name} · {currentLevel}</p>
+            <p className="eyebrow">
+              ICAI STUDY MATERIAL
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <h2
+                style={{
+                  margin: '6px 0 4px',
+                }}
+              >
+                {material.title || chapter}
+              </h2>
+
+              {chapterCompletionButton}
+            </div>
+
+            <p
+              style={{
+                margin: 0,
+                color: '#7188a0',
+                fontSize: '11px',
+              }}
+            >
+              {subject.name} {'\u00B7'} {currentLevel}
+            </p>
           </div>
-          <button className="filter-button" onClick={onBack}>← Back to Chapters</button>
+
+          <button
+            className="filter-button"
+            onClick={onBack}
+          >
+            {'\u2190 Back to Chapters'}
+          </button>
         </div>
 
-        <PrepCorePdfViewer src={material.pdfPath} title={material.title || chapter} />
-
-        <StudyHubCard
-          title={isComplete ? 'Chapter Completed' : 'Finish This Chapter'}
-          description={isComplete ? 'Your chapter progress is already saved.' : 'Mark the chapter complete after finishing the study material.'}
-          actionLabel={isComplete ? 'Mark Incomplete' : 'Mark Chapter Complete'}
-          onAction={() => safeToggleComplete(subject.id, chapter)}
-          completed={isComplete}
+        <PrepCorePdfViewer
+          src={material.pdfPath}
+          title={material.title || chapter}
         />
       </div>
     )
@@ -3299,17 +3800,48 @@ function ChapterStudyHub({
     <div className="page">
       <div className="page-intro">
         <div>
-          <p className="eyebrow">CHAPTER STUDY HUB</p>
-          <h2>{material.title || chapter}</h2>
+          <p className="eyebrow">
+            CHAPTER STUDY HUB
+          </p>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <h2 style={{ margin: 0 }}>
+              {material.title || chapter}
+            </h2>
+
+            {chapterCompletionButton}
+          </div>
+
           <p>{subject.name}</p>
         </div>
-        <button className="filter-button" onClick={onBack}>← Back to Chapters</button>
+
+        <button
+          className="filter-button"
+          onClick={onBack}
+        >
+          {'\u2190 Back to Chapters'}
+        </button>
       </div>
+
       <div className="information-card">
         <div className="info-icon">!</div>
+
         <div>
-          <h3>Study material not linked</h3>
-          <p>No PDF or units are configured for this chapter yet.</p>
+          <h3>
+            Study material not linked
+          </h3>
+
+          <p>
+            No PDF or units are configured
+            for this chapter yet.
+          </p>
         </div>
       </div>
     </div>
@@ -3331,139 +3863,302 @@ function PrepCorePdfViewer({
 
     const attach = () => {
       if (!window.pdfjsLib || cancelled) return
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+
       setPdfjs(window.pdfjsLib)
     }
 
     if (window.pdfjsLib) {
       attach()
-      return () => { cancelled = true }
+      return () => {
+        cancelled = true
+      }
     }
 
     const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+    script.src =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
     script.async = true
     script.onload = attach
+
     script.onerror = () => {
       if (!cancelled) {
         setError('PDF viewer library could not be loaded.')
         setLoading(false)
       }
     }
+
     document.head.appendChild(script)
 
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
     const previous = document.body.style.overflow
-    document.body.style.overflow = maximized ? 'hidden' : previous
-    return () => { document.body.style.overflow = previous }
+
+    if (maximized) {
+      document.body.style.overflow = 'hidden'
+    }
+
+    return () => {
+      document.body.style.overflow = previous
+    }
   }, [maximized])
 
   useEffect(() => {
     const onKey = (event) => {
-      if (event.key === 'Escape' && maximized) setMaximized(false)
+      if (event.key === 'Escape' && maximized) {
+        setMaximized(false)
+      }
     }
+
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+
+    return () => {
+      window.removeEventListener('keydown', onKey)
+    }
   }, [maximized])
 
   useEffect(() => {
     if (!pdfjs) return
+
     let cancelled = false
 
     const render = async () => {
       try {
-        setLoading(true)
         setError('')
-        const pdf = await pdfjs.getDocument({ url: src }).promise
+        setLoading(true)
+
+        const pdf = await pdfjs.getDocument({
+          url: src,
+        }).promise
+
         if (cancelled) return
+
         setPageCount(pdf.numPages)
 
-        const container = document.getElementById('prepcore-pdf-pages')
+        const container =
+          document.getElementById('prepcore-pdf-pages')
+
         if (!container) return
+
         container.innerHTML = ''
 
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        for (
+          let pageNumber = 1;
+          pageNumber <= pdf.numPages;
+          pageNumber += 1
+        ) {
           if (cancelled) return
-          const page = await pdf.getPage(pageNumber)
-          const baseViewport = page.getViewport({ scale: 1 })
-          const availableWidth = Math.max((container.clientWidth || 900) - 30, 320)
-          const scale = Math.min(maximized ? 1.8 : 1.5, Math.max(0.8, availableWidth / baseViewport.width))
-          const viewport = page.getViewport({ scale })
-          const ratio = window.devicePixelRatio || 1
 
-          const canvas = document.createElement('canvas')
-          canvas.width = Math.floor(viewport.width * ratio)
-          canvas.height = Math.floor(viewport.height * ratio)
-          canvas.style.width = `${Math.floor(viewport.width)}px`
-          canvas.style.height = `${Math.floor(viewport.height)}px`
+          const page =
+            await pdf.getPage(pageNumber)
+
+          const baseViewport =
+            page.getViewport({
+              scale: 1,
+            })
+
+          const availableWidth =
+            Math.max(
+              (container.clientWidth || 900) - 30,
+              320,
+            )
+
+          const scale = Math.min(
+            maximized ? 1.8 : 1.5,
+            Math.max(
+              0.8,
+              availableWidth / baseViewport.width,
+            ),
+          )
+
+          const viewport =
+            page.getViewport({
+              scale,
+            })
+
+          const ratio =
+            window.devicePixelRatio || 1
+
+          const canvas =
+            document.createElement('canvas')
+
+          canvas.width =
+            Math.floor(viewport.width * ratio)
+
+          canvas.height =
+            Math.floor(viewport.height * ratio)
+
+          canvas.style.width =
+            `${Math.floor(viewport.width)}px`
+
+          canvas.style.height =
+            `${Math.floor(viewport.height)}px`
+
           canvas.style.display = 'block'
           canvas.style.background = '#fff'
-          canvas.style.boxShadow = '0 1px 8px rgba(0,0,0,.12)'
+          canvas.style.boxShadow =
+            '0 1px 8px rgba(0,0,0,.12)'
 
-          const context = canvas.getContext('2d', { alpha: false })
+          const context =
+            canvas.getContext('2d', {
+              alpha: false,
+            })
+
           if (!context) continue
-          context.setTransform(ratio, 0, 0, ratio, 0, 0)
-          await page.render({ canvasContext: context, viewport }).promise
 
-          const wrapper = document.createElement('div')
+          context.setTransform(
+            ratio,
+            0,
+            0,
+            ratio,
+            0,
+            0,
+          )
+
+          await page.render({
+            canvasContext: context,
+            viewport,
+          }).promise
+
+          if (cancelled) return
+
+          const wrapper =
+            document.createElement('div')
+
           wrapper.style.display = 'flex'
           wrapper.style.justifyContent = 'center'
-          wrapper.style.padding = maximized ? '18px 0' : '12px 0'
+          wrapper.style.padding =
+            maximized
+              ? '18px 0'
+              : '12px 0'
+
           wrapper.style.background = '#e9edf2'
           wrapper.style.width = '100%'
+
           wrapper.appendChild(canvas)
           container.appendChild(wrapper)
+
+          // Show the PDF as soon as the first page is ready.
+          if (pageNumber === 1) {
+            setLoading(false)
+          }
         }
+
         setLoading(false)
       } catch (renderError) {
         if (cancelled) return
-        console.error('PDF RENDER ERROR:', renderError)
+
+        console.error(
+          'PDF RENDER ERROR:',
+          renderError,
+        )
+
         setError('Unable to render the PDF.')
         setLoading(false)
       }
     }
 
     render()
-    return () => { cancelled = true }
+
+    return () => {
+      cancelled = true
+    }
   }, [pdfjs, src, maximized])
 
   const shell = maximized
-    ? { position: 'fixed', inset: 0, zIndex: 99999, width: '100vw', height: '100vh', background: '#e9edf2' }
-    : { width: '100%', background: '#e9edf2', border: '1px solid #dce6f0', borderRadius: '16px', overflow: 'hidden' }
+    ? {
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        width: '100vw',
+        height: '100vh',
+        background: '#e9edf2',
+      }
+    : {
+        width: '100%',
+        background: '#e9edf2',
+        border: '1px solid #dce6f0',
+        borderRadius: '16px',
+        overflow: 'hidden',
+      }
 
   return (
     <div style={shell}>
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 10,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        gap: '10px', padding: '10px 13px', background: '#fff', borderBottom: '1px solid #e7eef4'
-      }}>
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '10px',
+          padding: '10px 13px',
+          background: '#fff',
+          borderBottom:
+            '1px solid #e7eef4',
+        }}
+      >
         {maximized ? (
           <button
             type="button"
-            onClick={() => setMaximized(false)}
+            onClick={() =>
+              setMaximized(false)
+            }
             style={{
-              minHeight: '34px', padding: '0 11px', border: '1px solid #dce6f0',
-              borderRadius: '9px', background: '#fff', color: '#1d4f83', fontSize: '10px', fontWeight: 800, cursor: 'pointer'
+              minHeight: '34px',
+              padding: '0 11px',
+              border:
+                '1px solid #dce6f0',
+              borderRadius: '9px',
+              background: '#fff',
+              color: '#1d4f83',
+              fontSize: '10px',
+              fontWeight: 800,
+              cursor: 'pointer',
             }}
           >
-            ← Back
+            {'\u2190 Back'}
           </button>
         ) : (
-          <span style={{ color: '#48657f', fontSize: '9px', fontWeight: 800 }}>{title}</span>
+          <span
+            style={{
+              color: '#48657f',
+              fontSize: '9px',
+              fontWeight: 800,
+            }}
+          >
+            {title}
+          </span>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
           {!maximized && (
             <a
               href={src}
               download
               style={{
-                textDecoration: 'none', color: '#1d4f83', fontSize: '9px', fontWeight: 800,
-                padding: '8px 10px', border: '1px solid #dce6f0', borderRadius: '9px', background: '#fff'
+                textDecoration: 'none',
+                color: '#1d4f83',
+                fontSize: '9px',
+                fontWeight: 800,
+                padding: '8px 10px',
+                border:
+                  '1px solid #dce6f0',
+                borderRadius: '9px',
+                background: '#fff',
               }}
             >
               Download PDF
@@ -3471,39 +4166,94 @@ function PrepCorePdfViewer({
           )}
 
           {!maximized && (
-            <span style={{ color: '#8396a8', fontSize: '8px' }}>
-              {pageCount ? `${pageCount} pages` : 'Loading PDF...'}
+            <span
+              style={{
+                color: '#8396a8',
+                fontSize: '8px',
+              }}
+            >
+              {pageCount
+                ? `${pageCount} pages`
+                : ''}
             </span>
           )}
 
           <button
             type="button"
-            onClick={() => setMaximized((value) => !value)}
-            title={maximized ? 'Minimize PDF' : 'Maximize PDF'}
-            aria-label={maximized ? 'Minimize PDF' : 'Maximize PDF'}
+            onClick={() =>
+              setMaximized((value) => !value)
+            }
+            title={
+              maximized
+                ? 'Minimize PDF'
+                : 'Maximize PDF'
+            }
+            aria-label={
+              maximized
+                ? 'Minimize PDF'
+                : 'Maximize PDF'
+            }
             style={{
-              width: '34px', height: '34px', display: 'grid', placeItems: 'center',
-              border: '1px solid #dce6f0', borderRadius: '9px', background: '#fff', color: '#1d4f83', fontSize: '15px', cursor: 'pointer'
+              width: '34px',
+              height: '34px',
+              display: 'grid',
+              placeItems: 'center',
+              border:
+                '1px solid #dce6f0',
+              borderRadius: '9px',
+              background: '#fff',
+              color: '#1d4f83',
+              fontSize: '15px',
+              cursor: 'pointer',
             }}
           >
-            ⛶
+            {'\u26F6'}
           </button>
         </div>
       </div>
 
       {error && (
-        <div style={{ margin: '16px', padding: '14px', borderRadius: '12px', background: '#fff4f4', border: '1px solid #edd7d7', color: '#a94343', fontSize: '10px' }}>
+        <div
+          style={{
+            margin: '16px',
+            padding: '14px',
+            borderRadius: '12px',
+            background: '#fff4f4',
+            border: '1px solid #edd7d7',
+            color: '#a94343',
+            fontSize: '10px',
+          }}
+        >
           {error}
         </div>
       )}
 
       {loading && !error && (
-        <div style={{ minHeight: maximized ? 'calc(100vh - 56px)' : '250px', display: 'grid', placeItems: 'center', color: '#6f879b', fontSize: '10px' }}>
-          Loading original PDF...
+        <div
+          style={{
+            minHeight: maximized
+              ? 'calc(100vh - 56px)'
+              : '120px',
+            display: 'grid',
+            placeItems: 'center',
+            color: '#6f879b',
+            fontSize: '10px',
+          }}
+        >
+          Opening PDF...
         </div>
       )}
 
-      <div id="prepcore-pdf-pages" style={{ height: maximized ? 'calc(100vh - 56px)' : 'auto', overflowY: 'auto', overflowX: 'hidden' }} />
+      <div
+        id="prepcore-pdf-pages"
+        style={{
+          height: maximized
+            ? 'calc(100vh - 56px)'
+            : 'auto',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+        }}
+      />
     </div>
   )
 }
@@ -4116,6 +4866,9 @@ function PracticePage({
         }
         onBack={
           onBackSubjects
+        }
+        onToggleComplete={
+          handleChapterToggle
         }
       />
     )
@@ -6364,6 +7117,7 @@ function SimplePage({
 }
 
 export default App
+
 
 
 
