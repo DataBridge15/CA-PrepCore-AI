@@ -1,4 +1,5 @@
-﻿import {
+import UpdateChecker from './UpdateChecker'
+import {
   useEffect,
   useMemo,
   useState,
@@ -1431,6 +1432,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      <UpdateChecker />
       <Sidebar
         activePage={
           activePage
@@ -1777,9 +1779,6 @@ function App() {
               }
               selectedSubject={
                 selectedSubject
-              }
-              currentLevel={
-                currentLevel
               }
               selectedChapter={
                 selectedChapter
@@ -2536,7 +2535,6 @@ function SubjectCard({
 
 function SubjectsPage({
   subjects,
-  currentLevel,
   selectedSubject,
   selectedChapter,
   subjectProgress,
@@ -2562,9 +2560,6 @@ function SubjectsPage({
           subjectProgress[
             selectedSubject.id
           ]
-        }
-        currentLevel={
-          currentLevel
         }
         onBack={
           onBackSubject
@@ -2653,17 +2648,19 @@ function ChapterSelection({
   onChapter,
   onBack,
 }) {
-  const completed = Array.isArray(progress?.completedChapters)
-    ? progress.completedChapters
-    : []
-
-  const normalize = (value) =>
+  const completed =
+    Array.isArray(
+      progress?.completedChapters,
+    )
+      ? progress.completedChapters
+      : []  
+  const normalizeSubject = (value) =>
     String(value || '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '')
 
-  const normalizedId = normalize(subject?.id)
-  const normalizedName = normalize(subject?.name)
+  const normalizedId = normalizeSubject(subject?.id)
+  const normalizedName = normalizeSubject(subject?.name)
 
   const isAdvancedAccounting =
     normalizedId === 'advancedaccounting' ||
@@ -2688,7 +2685,9 @@ function ChapterSelection({
           title: 'Final Accounts & Other Accounts',
           chapters: subject.chapterList.slice(6, 11),
         },
-      ].filter((module) => module.chapters.length > 0)
+      ].filter(
+        (module) => module.chapters.length > 0,
+      )
     : isAdvancedAccounting
       ? [
           {
@@ -2709,199 +2708,342 @@ function ChapterSelection({
             title: 'Company Accounts & Other Topics',
             chapters: subject.chapterList.slice(10, 15),
           },
-        ].filter((module) => module.chapters.length > 0)
+        ].filter(
+          (module) => module.chapters.length > 0,
+        )
       : []
 
-  const renderChapter = (chapter, chapterNumber) => {
-    const done = completed.includes(chapter)
+  const renderChapter =
+    (
+      chapter,
+      chapterNumber,
+    ) => {
+      const done =
+        completed.includes(
+          chapter,
+        )
 
-    return (
-      <button
-        key={chapter}
-        type="button"
-        onClick={() => onChapter(chapter)}
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-          padding: '16px 18px',
-          background: '#fff',
-          border: '1px solid #dce6f0',
-          borderRadius: '14px',
-          textAlign: 'left',
-          cursor: 'pointer',
-        }}
-      >
-        <span
+      return (
+        <button
+          key={
+            chapter
+          }
+          type="button"
+          onClick={() =>
+            onChapter(
+              chapter,
+            )
+          }
           style={{
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
-            display: 'grid',
-            placeItems: 'center',
-            background: '#edf4fb',
-            color: '#1d4f83',
-            fontWeight: 800,
-            flexShrink: 0,
+            width:
+              '100%',
+            display:
+              'flex',
+            alignItems:
+              'center',
+            gap:
+              '16px',
+            padding:
+              '16px 18px',
+            background:
+              '#fff',
+            border:
+              '1px solid #dce6f0',
+            borderRadius:
+              '14px',
+            textAlign:
+              'left',
+            cursor:
+              'pointer',
           }}
         >
-          {String(chapterNumber).padStart(2, '0')}
-        </span>
-
-        <span
-          style={{
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
-          <strong
+          <span
             style={{
-              display: 'block',
-              color: '#09294f',
-              fontSize: '14px',
-              lineHeight: '1.35',
+              width:
+                '42px',
+              height:
+                '42px',
+              borderRadius:
+                '12px',
+              display:
+                'grid',
+              placeItems:
+                'center',
+              background:
+                '#edf4fb',
+              color:
+                '#1d4f83',
+              fontWeight:
+                800,
+              flexShrink:
+                0,
             }}
           >
-            {chapter}
-          </strong>
+            {String(
+              chapterNumber,
+            ).padStart(
+              2,
+              '0',
+            )}
+          </span>
 
-          <small
+          <span
             style={{
-              display: 'block',
-              marginTop: '4px',
-              color: '#7890aa',
+              flex:
+                1,
+              minWidth:
+                0,
             }}
           >
-            {done
-              ? 'Completed · Open study hub'
-              : 'Open chapter study hub'}
-          </small>
-        </span>
+            <strong
+              style={{
+                display:
+                  'block',
+                color:
+                  '#09294f',
+                fontSize:
+                  '14px',
+                lineHeight:
+                  '1.35',
+              }}
+            >
+              {
+                chapter
+              }
+            </strong>
 
-        <span
-          style={{
-            color: '#1d4f83',
-            fontSize: '18px',
-            fontWeight: 800,
-            flexShrink: 0,
-          }}
-        >
-          →
-        </span>
-      </button>
-    )
-  }
+            <small
+              style={{
+                display:
+                  'block',
+                marginTop:
+                  '4px',
+                color:
+                  '#7890aa',
+              }}
+            >
+              {done
+                ? 'Completed · Open study hub'
+                : 'Open chapter study hub'}
+            </small>
+          </span>
+
+          <span
+            style={{
+              color:
+                '#1d4f83',
+              fontSize:
+                '18px',
+              fontWeight:
+                800,
+              flexShrink:
+                0,
+            }}
+          >
+            →
+          </span>
+        </button>
+      )
+    }
 
   return (
     <div className="page">
       <div
         style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-end',
-          gap: '20px',
-          flexWrap: 'wrap',
-          marginBottom: '26px',
+          display:
+            'flex',
+          justifyContent:
+            'space-between',
+          alignItems:
+            'flex-end',
+          gap:
+            '20px',
+          flexWrap:
+            'wrap',
+          marginBottom:
+            '26px',
         }}
       >
         <div>
-          <p className="eyebrow">SELECT CHAPTER</p>
+          <p className="eyebrow">
+            SELECT CHAPTER
+          </p>
 
-          <h2 style={{ marginTop: '8px' }}>{subject.name}</h2>
+          <h2
+            style={{
+              marginTop:
+                '8px',
+            }}
+          >
+            {
+              subject.name
+            }
+          </h2>
 
-          <p style={{ color: '#7188a0', fontSize: '13px' }}>
-            {subject.chapterList.length} chapters
-            {modules.length > 0 ? ' · Module-wise syllabus' : ''}
+          <p
+            style={{
+              color:
+                '#7188a0',
+              fontSize:
+                '13px',
+            }}
+          >
+            {
+              subject.chapterList.length
+            }{' '}
+            chapters
           </p>
         </div>
 
-        <button className="filter-button" onClick={onBack}>
+        <button
+          className="filter-button"
+          onClick={
+            onBack
+          }
+        >
           ← Back to Subjects
         </button>
       </div>
 
-      {modules.length > 0 ? (
+      {isFoundationAccounting || isAdvancedAccounting ? (
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '24px',
+            display:
+              'flex',
+            flexDirection:
+              'column',
+            gap:
+              '24px',
           }}
         >
-          {modules.map((module, moduleIndex) => {
-            const startNumber =
-              modules
-                .slice(0, moduleIndex)
-                .reduce(
-                  (total, item) => total + item.chapters.length,
-                  0,
-                ) + 1
+          {modules.map(
+            (
+              module,
+              moduleIndex,
+            ) => {
+              const startNumber =
+                modules
+                  .slice(
+                    0,
+                    moduleIndex,
+                  )
+                  .reduce(
+                    (
+                      total,
+                      item,
+                    ) =>
+                      total +
+                      item
+                        .chapters
+                        .length,
+                    0,
+                  ) + 1
 
-            return (
-              <section
-                key={module.id}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                }}
-              >
-                <div
+              return (
+                <section
+                  key={
+                    module.id
+                  }
                   style={{
-                    padding: '14px 16px',
-                    border: '1px solid #dbe7f1',
-                    borderRadius: '14px',
-                    background: '#edf5fb',
+                    display:
+                      'flex',
+                    flexDirection:
+                      'column',
+                    gap:
+                      '10px',
                   }}
                 >
-                  <span
+                  <div
                     style={{
-                      display: 'block',
-                      fontSize: '8px',
-                      fontWeight: 800,
-                      letterSpacing: '1.1px',
-                      color: '#7188a0',
+                      padding:
+                        '14px 16px',
+                      border:
+                        '1px solid #dbe7f1',
+                      borderRadius:
+                        '14px',
+                      background:
+                        '#edf5fb',
                     }}
                   >
-                    {module.label}
-                  </span>
+                    <span
+                      style={{
+                        display:
+                          'block',
+                        fontSize:
+                          '8px',
+                        fontWeight:
+                          800,
+                        letterSpacing:
+                          '1.1px',
+                        color:
+                          '#7188a0',
+                      }}
+                    >
+                      {
+                        module.label
+                      }
+                    </span>
 
-                  <strong
-                    style={{
-                      display: 'block',
-                      marginTop: '4px',
-                      color: '#0d3b69',
-                      fontSize: '13px',
-                    }}
-                  >
-                    {module.title}
-                  </strong>
-                </div>
+                    <strong
+                      style={{
+                        display:
+                          'block',
+                        marginTop:
+                          '4px',
+                        color:
+                          '#0d3b69',
+                        fontSize:
+                          '13px',
+                      }}
+                    >
+                      {module.title}
+                    </strong>
+                  </div>
 
-                {module.chapters.map((chapter, index) =>
-                  renderChapter(chapter, startNumber + index),
-                )}
-              </section>
-            )
-          })}
+                  {module.chapters.map(
+                    (
+                      chapter,
+                      index,
+                    ) =>
+                      renderChapter(
+                        chapter,
+                        startNumber +
+                          index,
+                      ),
+                  )}
+                </section>
+              )
+            },
+          )}
         </div>
       ) : (
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px',
+            display:
+              'flex',
+            flexDirection:
+              'column',
+            gap:
+              '10px',
           }}
         >
-          {subject.chapterList.map((chapter, index) =>
-            renderChapter(chapter, index + 1),
+          {subject.chapterList.map(
+            (
+              chapter,
+              index,
+            ) =>
+              renderChapter(
+                chapter,
+                index +
+                  1,
+              ),
           )}
         </div>
       )}
     </div>
   )
 }
+
 
 const CHAPTER5_UNIT_PDFS = {
   'unit-1': '/materials/advanced-accounting/module-2/chapter-5/unit-1/as-2-valuation-of-inventory.pdf',
@@ -2927,15 +3069,10 @@ function ChapterStudyHub({
   currentLevel,
   onToggleComplete,
 }) {
-  const materialSubjectId =
-    subject.id === 'foundation-law'
-      ? 'foundation-business-law'
-      : subject.id
-
   const material =
     getChapterMaterial(
       currentLevel || subject.level || 'CA Intermediate',
-      materialSubjectId,
+      subject.id,
       chapter,
     )
 
@@ -6222,3 +6359,7 @@ function SimplePage({
 }
 
 export default App
+
+
+
+
