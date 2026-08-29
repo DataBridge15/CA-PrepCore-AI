@@ -956,7 +956,7 @@ function App() {
       )
     }
 
-  const handleChapterToggle =
+  const onToggleComplete =
     async (
       subjectId,
       chapter,
@@ -1793,7 +1793,7 @@ function App() {
                 openChapter
               }
               onToggleComplete={
-                handleChapterToggle
+                onToggleComplete
               }
               onBackSubject={() =>
                 setSelectedChapter(
@@ -2596,7 +2596,7 @@ function SubjectsPage({
           onBackSubjects
         }
         onToggleComplete={
-          handleChapterToggle
+          onToggleComplete
         }
       />
     )
@@ -4868,7 +4868,7 @@ function PracticePage({
           onBackSubjects
         }
         onToggleComplete={
-          handleChapterToggle
+          onToggleComplete
         }
       />
     )
