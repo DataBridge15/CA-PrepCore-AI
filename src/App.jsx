@@ -3069,10 +3069,15 @@ function ChapterStudyHub({
   currentLevel,
   onToggleComplete,
 }) {
+  const materialSubjectId =
+    subject.id === 'foundation-law'
+      ? 'foundation-business-law'
+      : subject.id
+
   const material =
     getChapterMaterial(
       currentLevel || subject.level || 'CA Intermediate',
-      subject.id,
+      materialSubjectId,
       chapter,
     )
 
