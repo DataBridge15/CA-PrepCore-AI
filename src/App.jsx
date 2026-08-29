@@ -41,48 +41,48 @@ import {
 const MENU_ITEMS = [
   {
     id: 'dashboard',
-    icon: '⌂',
+    icon: '\u2302',
     label: 'Dashboard',
   },
   {
     id: 'ai',
-    icon: '✦',
+    icon: '\u2726',
     label: 'AI Doubt Solver',
     badge: 'AI',
   },
   {
     id: 'subjects',
-    icon: '▣',
+    icon: '\u25A3',
     label: 'My Subjects',
   },
   {
     id: 'planner',
-    icon: '◷',
+    icon: '\u25F7',
     label: 'Study Planner',
   },
   {
     id: 'revision',
-    icon: '↻',
+    icon: '\u21BB',
     label: 'Revision',
   },
   {
     id: 'practice',
-    icon: '✓',
+    icon: '\u2713',
     label: 'Practice & MCQs',
   },
   {
     id: 'mock',
-    icon: '◆',
+    icon: '\u25C6',
     label: 'Mock Tests',
   },
   {
     id: 'progress',
-    icon: '◒',
+    icon: '\u25D2',
     label: 'Progress',
   },
   {
     id: 'readiness',
-    icon: '◎',
+    icon: '\u25CE',
     label: 'Exam Readiness',
   },
 ]
@@ -2676,14 +2676,14 @@ function ChapterSelection({
         {
           id: 'module-1',
           label: 'MODULE 1',
-          title: 'Theoretical Framework & Accounting Process',
-          chapters: subject.chapterList.slice(0, 6),
+          title: 'Theoretical Framework, Accounting Process & Final Accounts',
+          chapters: subject.chapterList.slice(0, 7),
         },
         {
           id: 'module-2',
           label: 'MODULE 2',
-          title: 'Final Accounts & Other Accounts',
-          chapters: subject.chapterList.slice(6, 11),
+          title: 'Other Accounts & Company Accounts',
+          chapters: subject.chapterList.slice(7, 11),
         },
       ].filter(
         (module) => module.chapters.length > 0,

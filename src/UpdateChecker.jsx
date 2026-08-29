@@ -119,7 +119,7 @@ function UpdateChecker() {
             marginBottom: '16px',
           }}
         >
-          Ã¢â€ Â»
+          ?
         </div>
 
         <h2
@@ -162,7 +162,7 @@ function UpdateChecker() {
             }}
           >
             Current: {CURRENT_VERSION}
-            {' Ã‚Â· '}
+            {' ? '}
             Latest: {update.version}
           </div>
         </div>
