@@ -17,14 +17,14 @@ app.use(express.json());
 |--------------------------------------------------------------------------
 */
 
-const APP_VERSION = "4.0.0";
+const APP_VERSION = "4.0.1";
 const APP_VERSION_CODE = 4;
 
 const APK_DOWNLOAD_URL =
   "https://github.com/DataBridge15/CA-PrepCore-AI/releases/latest/download/app-release.apk";
 
 const APP_RELEASE_NOTES =
-  "Initial public release of CA PrepCore.AI.";
+  ["Test update"];
 
 /*
 |--------------------------------------------------------------------------
